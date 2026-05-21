@@ -136,13 +136,10 @@ def windows_escape(prompt):
         - `success`: boolean indicating execution status
         - `SESSION_ID`: unique identifier for resuming this conversation in future calls
         - `agent_messages`: concatenated assistant response text
-        - `all_messages`: (optional) complete array of JSON events when `return_all_messages=True`
         - `error`: error description when `success=False`
 
     **Best practices:**
         - Always capture and reuse `SESSION_ID` for multi-turn interactions
-        - Enable `sandbox` mode when file modifications should be isolated
-        - Use `return_all_messages` only when detailed execution traces are necessary (increases payload size)
         - Only pass `model` when the user has explicitly requested a specific model
     """,
     meta={"version": "0.0.0", "author": "guda.studio"},
@@ -150,22 +147,14 @@ def windows_escape(prompt):
 async def gemini(
     PROMPT: Annotated[str, "Instruction for the task to send to gemini."],
     cd: Annotated[Path, "Set the workspace root for gemini before executing the task."],
-    sandbox: Annotated[
-        bool,
-        Field(description="Run in sandbox mode. Defaults to `False`."),
-    ] = False,
     SESSION_ID: Annotated[
         str,
         "Resume the specified session of the gemini. Defaults to empty string, start a new session.",
     ] = "",
-    return_all_messages: Annotated[
-        bool,
-        "Return all messages (e.g. reasoning, tool calls, etc.) from the gemini session. Set to `False` by default, only the agent's final reply message is returned.",
-    ] = False,
     model: Annotated[
         str,
         "The model to use for the gemini session. This parameter is strictly prohibited unless explicitly specified by the user.",
-    ] = "",
+    ] = "auto",
 ) -> Dict[str, Any]:
     """Execute a gemini CLI session and return the results."""
     
@@ -179,10 +168,7 @@ async def gemini(
     else:
         PROMPT = PROMPT
 
-    cmd = ["gemini", "--prompt", PROMPT, "-o", "stream-json"]
-
-    if sandbox:
-        cmd.extend(["--sandbox"])
+    cmd = ["gemini", "--prompt", PROMPT, "-o", "stream-json", "--approval-mode=yolo", "--allowed-mcp-server-names=[*]"]
 
     if model:
         cmd.extend(["--model", model])
@@ -190,7 +176,6 @@ async def gemini(
     if SESSION_ID:
         cmd.extend(["--resume", SESSION_ID])
 
-    all_messages = []
     agent_messages = ""
     success = True
     err_message = ""
@@ -199,7 +184,6 @@ async def gemini(
     for line in run_shell_command(cmd, cwd=cd.absolute().as_posix()):
         try:
             line_dict = json.loads(line.strip())
-            all_messages.append(line_dict)
             item_type = line_dict.get("type", "")
             item_role = line_dict.get("role", "")
             if item_type == "message" and item_role == "assistant":
@@ -244,15 +228,11 @@ async def gemini(
         result: Dict[str, Any] = {
             "success": True,
             "SESSION_ID": thread_id,
-            "agent_messages": agent_messages,
-            # "PROMPT": PROMPT,
+            "agent_messages": agent_messages
         }
     else:
         result = {"success": False, "error": err_message}
     
-    if return_all_messages:
-        result["all_messages"] = all_messages
-
     return result
 
 

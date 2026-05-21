@@ -13,3 +13,6 @@ geminimcp = "geminimcp.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/geminimcp"]
+
+[tool.uv]
+package = true
