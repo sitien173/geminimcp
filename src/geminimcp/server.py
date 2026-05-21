@@ -154,7 +154,7 @@ async def gemini(
     model: Annotated[
         str,
         "The model to use for the gemini session. This parameter is strictly prohibited unless explicitly specified by the user.",
-    ] = "auto",
+    ] = "gemini-3.5-flash",
 ) -> Dict[str, Any]:
     """Execute a gemini CLI session and return the results."""
     
